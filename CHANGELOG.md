@@ -1,5 +1,9 @@
 # Changelog
 
+## `3ef7cf3` Commented code
+
+Added detailed comments and documentation throughout the code...
+
 ## `14ffe2c` Fixed deadlock
 
 Fixed a deadlock in the `TaskProducer`.
