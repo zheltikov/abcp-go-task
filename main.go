@@ -134,16 +134,12 @@ func newTaskProcessor(
 	}
 }
 
-func (taskProcessor *TaskProcessor) execute(ctx context.Context) {
+func (taskProcessor *TaskProcessor) execute() {
 	log.Info("TaskProcessor thread started")
 
 outer:
 	for {
 		select {
-		// if context is cancelled, return
-		case <-ctx.Done():
-			break outer
-
 		case task, ok := <-taskProcessor.inputChan:
 			if !ok {
 				break outer
@@ -203,16 +199,12 @@ func newTaskFilter(
 	}
 }
 
-func (taskFilter *TaskFilter) execute(ctx context.Context) {
+func (taskFilter *TaskFilter) execute() {
 	log.Info("TaskFilter thread started")
 
 outer:
 	for {
 		select {
-		// if context is cancelled, return
-		case <-ctx.Done():
-			break outer
-
 		case task, ok := <-taskFilter.inputChan:
 			if !ok {
 				break outer
@@ -268,7 +260,7 @@ func (taskStorage *TaskStorage) addError(err error) {
 	taskStorage.errors = append(taskStorage.errors, err)
 }
 
-func (taskStorage *TaskStorage) execute(ctx context.Context) {
+func (taskStorage *TaskStorage) execute() {
 	log.Info("TaskStorage thread started")
 
 	taskChanOpen := true
@@ -281,10 +273,6 @@ outer:
 		}
 
 		select {
-		// if context is cancelled, return
-		case <-ctx.Done():
-			break outer
-
 		case task, ok := <-taskStorage.taskChan:
 			taskChanOpen = ok
 			if ok {
@@ -334,7 +322,7 @@ func main() {
 		defer wg.Done()
 
 		taskProcessor := newTaskProcessor(taskChan, processedTaskChan)
-		taskProcessor.execute(ctx)
+		taskProcessor.execute()
 	}()
 
 	successfulTaskChan := make(chan Task)
@@ -345,7 +333,7 @@ func main() {
 		defer wg.Done()
 
 		taskFilter := newTaskFilter(processedTaskChan, successfulTaskChan, errorChan)
-		taskFilter.execute(ctx)
+		taskFilter.execute()
 	}()
 
 	wg.Add(1)
@@ -353,7 +341,7 @@ func main() {
 		defer wg.Done()
 
 		taskStorage := newTaskStorage(successfulTaskChan, errorChan)
-		taskStorage.execute(ctx)
+		taskStorage.execute()
 
 		log.Debug("Printing task execution summary...")
 
@@ -366,13 +354,18 @@ func main() {
 		}
 	}()
 
-	// cancel context after 3 seconds
-	log.Debug("Main thread sleep started")
-	time.Sleep(3 * time.Second)
-	log.Debug("Main thread sleep done")
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	cancel()
-	log.Debug("Main thread cancelled context")
+		// cancel context after 3 seconds
+		log.Debug("Sleep started")
+		time.Sleep(3 * time.Second)
+		log.Debug("Sleep done")
+
+		cancel()
+		log.Debug("Cancelled context")
+	}()
 
 	// wait for goroutines to finish
 	log.Debug("Main thread waiting started")
