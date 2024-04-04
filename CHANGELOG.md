@@ -1,5 +1,13 @@
 # Changelog
 
+## `14ffe2c` Fixed deadlock
+
+Fixed a deadlock in the `TaskProducer`.
+
+This deadlock occurred when all remaining goroutines received a `cancel` event from the `context`, but the `TaskProducer` goroutine still had to write to a full channel (which is a blocking operation).
+
+As a solution, the `TaskProducer` is now the only routine listening on the `context`; all other routines depend only on their respective read-channels, and finalize their work in a cascade fashion when there is nothing left to read on their channels.
+
 ## `b41c431` Code improvements
 
 1. Better naming for struct fields, structs, funcs, ...
